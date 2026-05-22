@@ -13,8 +13,8 @@
       --line: rgba(255, 255, 255, 0.12);
       --text: #f5f8ff;
       --muted: #9da8ba;
-      --inbound: #ff4f5e;
-      --outbound: #49a8ff;
+      --inbound: #49a8ff;
+      --outbound: #ff4f5e;
       --accent: #ffd166;
       --land: rgba(115, 142, 166, 0.18);
       --land-line: rgba(194, 211, 225, 0.48);
@@ -197,6 +197,14 @@
     .legend-dot.outbound {
       color: var(--outbound);
       background: var(--outbound);
+    }
+
+    .legend-scale {
+      border-top: 1px solid var(--line);
+      padding-top: 9px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.5;
     }
 
     .side-panel {
@@ -396,6 +404,10 @@
         align-items: flex-start;
       }
 
+      .legend-scale {
+        font-size: 11px;
+      }
+
       .metric-grid {
         grid-template-columns: 1fr;
       }
@@ -423,19 +435,20 @@
       <div class="map-panel">
         <div class="controls" aria-label="表示切り替え">
           <button type="button" data-mode="both" aria-pressed="true">両方表示</button>
-          <button type="button" data-mode="inbound" aria-pressed="false">転入超過のみ</button>
           <button type="button" data-mode="outbound" aria-pressed="false">転出超過のみ</button>
+          <button type="button" data-mode="inbound" aria-pressed="false">転入超過のみ</button>
         </div>
         <canvas id="flowCanvas" aria-label="島根県を中心にした人口移動フローの簡易地図"></canvas>
         <div class="legend">
           <div class="legend-row">
-            <span class="legend-dot inbound"></span>
-            <span>赤いドット：他都道府県から島根県への転入超過</span>
+            <span class="legend-dot outbound"></span>
+            <span>赤いドット：島根県から他都道府県への転出超過</span>
           </div>
           <div class="legend-row">
-            <span class="legend-dot outbound"></span>
-            <span>青いドット：島根県から他都道府県への転出超過</span>
+            <span class="legend-dot inbound"></span>
+            <span>青いドット：他都道府県から島根県への転入超過</span>
           </div>
+          <div class="legend-scale" id="dotScaleText">ドットは人数の固定単位ではなく、出現頻度で純流動の大きさを表現しています。</div>
         </div>
       </div>
 
@@ -443,19 +456,14 @@
         <section>
           <div class="metric-grid">
             <div class="metric">
-              <strong id="inboundTotal">0</strong>
-              <span>転入超過の合計</span>
-            </div>
-            <div class="metric">
               <strong id="outboundTotal">0</strong>
               <span>転出超過の合計</span>
             </div>
+            <div class="metric">
+              <strong id="inboundTotal">0</strong>
+              <span>転入超過の合計</span>
+            </div>
           </div>
-        </section>
-
-        <section>
-          <h2>転入超過上位</h2>
-          <ol id="inboundRanking"></ol>
         </section>
 
         <section>
@@ -463,12 +471,17 @@
           <ol id="outboundRanking"></ol>
         </section>
 
+        <section>
+          <h2>転入超過上位</h2>
+          <ol id="inboundRanking"></ol>
+        </section>
+
         <p class="note">
           <strong>注記：</strong>この図は実際の移動経路ではなく、島根県と各都道府県の純流動を表現したものです。
         </p>
         <p class="source-note">
           出典：<a href="https://www.e-stat.go.jp/stat-search/files?layout=datalist&lid=000001476215&page=1" target="_blank" rel="noopener">総務省統計局「住民基本台帳人口移動報告」2025年（令和7年）年報（実数）表2</a><br>
-          対象：移動者（日本人移動者・外国人移動者を含む）
+          対象：国籍「移動者」。表の行を移動前、列を移動後として、各都道府県→島根県を転入、島根県→各都道府県を転出に集計。
         </p>
       </aside>
     </main>
@@ -829,6 +842,8 @@
     const outboundTotalEl = document.getElementById("outboundTotal");
     const activeModeLabel = document.getElementById("activeModeLabel");
     const prefCount = document.getElementById("prefCount");
+    const dotScaleText = document.getElementById("dotScaleText");
+    const peoplePerDotPerSecond = 75;
 
     const flows = prefectureData
       .filter((prefecture) => prefecture.name !== shimane.name)
@@ -1321,7 +1336,7 @@
     function spawnParticles(deltaSeconds) {
       flows.forEach((flow) => {
         if (!isFlowVisible(flow)) return;
-        const spawnRate = Math.abs(flow.net) / 75;
+        const spawnRate = Math.abs(flow.net) / peoplePerDotPerSecond;
         flow.spawnBucket = (flow.spawnBucket || Math.random()) + spawnRate * deltaSeconds;
 
         while (flow.spawnBucket >= 1) {
@@ -1426,6 +1441,7 @@
       inboundTotalEl.textContent = `${formatNumber(inboundTotal)}人`;
       outboundTotalEl.textContent = `${formatNumber(outboundTotal)}人`;
       prefCount.textContent = `${prefectureData.length}都道府県`;
+      dotScaleText.textContent = `ドットは人数の固定単位ではありません。出現頻度の目安：純流動${formatNumber(peoplePerDotPerSecond)}人あたり毎秒約1個（75人未満も表示）`;
       buildRanking(inboundRanking, inboundItems, "inbound");
       buildRanking(outboundRanking, outboundItems, "outbound");
     }
