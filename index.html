@@ -351,8 +351,27 @@
         padding-top: 18px;
       }
 
-      .map-panel,
+      h1 {
+        font-size: 23px;
+        text-wrap: balance;
+      }
+
+      .subtitle {
+        font-size: 13px;
+        line-height: 1.55;
+      }
+
+      .header-source {
+        font-size: 10px;
+      }
+
+      .map-panel {
+        min-height: 0;
+        overflow: visible;
+      }
+
       canvas {
+        height: 560px;
         min-height: 560px;
       }
 
@@ -367,9 +386,14 @@
       }
 
       .legend {
-        left: 12px;
-        right: 12px;
-        bottom: 12px;
+        position: static;
+        margin: 0 12px 12px;
+        max-width: none;
+        font-size: 12px;
+      }
+
+      .legend-row {
+        align-items: flex-start;
       }
 
       .metric-grid {
@@ -854,6 +878,13 @@
       { name: "福岡県", x: 0.10, y: 0.72, align: "right" }
     ];
 
+    const mobileLabelCallouts = [
+      { name: "東京都", x: 0.78, y: 0.29, align: "left" },
+      { name: "島根県", x: 0.18, y: 0.45, align: "right", accent: true },
+      { name: "広島県", x: 0.18, y: 0.56, align: "right" },
+      { name: "大阪府", x: 0.78, y: 0.61, align: "left" }
+    ];
+
     const mapPositionOverrides = {
       "北海道": { lat: 43.46, lng: 142.72 },
       "青森県": { lat: 40.79, lng: 140.78 },
@@ -936,10 +967,15 @@
       return point.name === "沖縄県" || (point.lat < 30 && point.lng < 131);
     }
 
+    function isMobileLayout() {
+      return width <= 560;
+    }
+
     function getMapLayout() {
-      const padX = Math.max(42, width * 0.08);
-      const padTop = Math.max(82, height * 0.14);
-      const padBottom = Math.max(72, height * 0.13);
+      const mobile = isMobileLayout();
+      const padX = mobile ? Math.max(28, width * 0.08) : Math.max(42, width * 0.08);
+      const padTop = mobile ? Math.max(46, height * 0.08) : Math.max(82, height * 0.14);
+      const padBottom = mobile ? Math.max(98, height * 0.18) : Math.max(72, height * 0.13);
       const usableW = Math.max(1, width - padX * 2);
       const usableH = Math.max(1, height - padTop - padBottom);
       const xMin = mainBounds.minLng * Math.PI / 180;
@@ -948,7 +984,7 @@
       const yBottom = -mercatorY(mainBounds.minLat);
       const mapW = xMax - xMin;
       const mapH = yBottom - yTop;
-      const scale = Math.min(usableW / mapW, usableH / mapH) * 0.96;
+      const scale = Math.min(usableW / mapW, usableH / mapH) * (mobile ? 0.88 : 0.96);
       const drawnW = mapW * scale;
       const drawnH = mapH * scale;
 
@@ -962,14 +998,17 @@
         yTop,
         scale,
         offsetX: padX + (usableW - drawnW) / 2,
-        offsetY: padTop + (usableH - drawnH) / 2 - Math.min(28, usableH * 0.045)
+        offsetY: mobile
+          ? padTop + Math.max(0, usableH - drawnH) * 0.12
+          : padTop + (usableH - drawnH) / 2 - Math.min(28, usableH * 0.045)
       };
     }
 
     function getOkinawaLayout() {
       const layout = getMapLayout();
-      const insetW = Math.min(140, layout.usableW * 0.20);
-      const insetH = Math.min(74, layout.usableH * 0.14);
+      const mobile = isMobileLayout();
+      const insetW = mobile ? Math.min(118, layout.usableW * 0.40) : Math.min(140, layout.usableW * 0.20);
+      const insetH = mobile ? Math.min(64, layout.usableH * 0.18) : Math.min(74, layout.usableH * 0.14);
       const xMin = okinawaBounds.minLng * Math.PI / 180;
       const xMax = okinawaBounds.maxLng * Math.PI / 180;
       const yTop = -mercatorY(okinawaBounds.maxLat);
@@ -979,8 +1018,12 @@
       const scale = Math.min(insetW / mapW, insetH / mapH) * 0.92;
       const drawnW = mapW * scale;
       const drawnH = mapH * scale;
-      const centerX = layout.padX + layout.usableW * 0.055;
-      const centerY = layout.padTop + layout.usableH * 0.92;
+      const centerX = mobile
+        ? layout.padX + layout.usableW * 0.18
+        : layout.padX + layout.usableW * 0.055;
+      const centerY = mobile
+        ? height - layout.padBottom * 0.48
+        : layout.padTop + layout.usableH * 0.92;
 
       return {
         xMin,
@@ -1068,6 +1111,8 @@
     }
 
     function getRankingCallouts() {
+      if (isMobileLayout()) return [];
+
       const names = [];
       if (activeMode !== "outbound") names.push(...topInboundNames);
       if (activeMode !== "inbound") names.push(...topOutboundNames);
@@ -1137,9 +1182,10 @@
 
     function drawMap() {
       ctx.save();
+      const mobile = isMobileLayout();
       ctx.fillStyle = getCssColor("--land");
       ctx.strokeStyle = getCssColor("--land-line");
-      ctx.lineWidth = 1.4;
+      ctx.lineWidth = mobile ? 1.1 : 1.4;
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
 
@@ -1155,7 +1201,7 @@
       ctx.strokeStyle = "rgba(194, 211, 225, 0.25)";
       ctx.strokeRect(okinawaLayout.boxX, okinawaLayout.boxY, okinawaLayout.boxW, okinawaLayout.boxH);
       ctx.setLineDash([]);
-      ctx.font = "700 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+      ctx.font = `${mobile ? 11 : 12}px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
       ctx.lineWidth = 4;
       ctx.strokeStyle = "rgba(5, 7, 11, 0.88)";
       ctx.strokeText("沖縄県", okinawaLayout.boxX + 10, okinawaLayout.boxY + okinawaLayout.boxH - 12);
@@ -1199,10 +1245,14 @@
 
     function drawLabelCallouts() {
       ctx.save();
+      const mobile = isMobileLayout();
       ctx.textBaseline = "middle";
-      ctx.font = "700 12px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+      ctx.font = `700 ${mobile ? 11 : 12}px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif`;
 
-      const labels = [...labelCallouts, ...getRankingCallouts()];
+      const labels = [
+        ...(mobile ? mobileLabelCallouts : labelCallouts),
+        ...getRankingCallouts()
+      ];
 
       labels.forEach((label) => {
         const prefecture = label.name === shimane.name
@@ -1211,8 +1261,8 @@
         if (!prefecture) return;
 
         const point = project(prefecture);
-        const labelX = clamp(width * label.x, 28, width - 28);
-        const labelY = clamp(height * label.y, 92, height - 58);
+        const labelX = clamp(width * label.x, mobile ? 18 : 28, width - (mobile ? 18 : 28));
+        const labelY = clamp(height * label.y, mobile ? 42 : 92, height - (mobile ? 92 : 58));
         const color = label.accent ? "#fff0b8" : "rgba(224, 234, 248, 0.92)";
         const lineColor = label.accent
           ? "rgba(255, 209, 102, 0.72)"
@@ -1220,7 +1270,7 @@
         const textWidth = ctx.measureText(label.name).width;
         const textX = label.align === "right" ? labelX - textWidth : labelX;
         const lineEndX = label.align === "right" ? textX + textWidth + 8 : textX - 8;
-        const elbowX = point.x + (lineEndX - point.x) * 0.58;
+        const elbowX = point.x + (lineEndX - point.x) * (mobile ? 0.72 : 0.58);
 
         ctx.beginPath();
         ctx.arc(point.x, point.y, label.accent ? 2.1 : 1.2, 0, Math.PI * 2);
@@ -1229,8 +1279,13 @@
 
         ctx.beginPath();
         ctx.moveTo(point.x, point.y);
-        ctx.quadraticCurveTo(elbowX, point.y, elbowX, labelY);
-        ctx.lineTo(lineEndX, labelY);
+        if (mobile) {
+          ctx.lineTo(elbowX, labelY);
+          ctx.lineTo(lineEndX, labelY);
+        } else {
+          ctx.quadraticCurveTo(elbowX, point.y, elbowX, labelY);
+          ctx.lineTo(lineEndX, labelY);
+        }
         ctx.strokeStyle = lineColor;
         ctx.lineWidth = label.accent ? 1.2 : label.ranking ? 1 : 0.85;
         ctx.stroke();
